@@ -1,4 +1,6 @@
 import { gql } from 'apollo-server-express';
+import * as uuid from 'uuid';
+
 import createRepository from '../../io/Database/createRepository';
 import { ListSortmentEnum } from '../List/List';
 
@@ -33,6 +35,25 @@ export const typeDefs = gql`
     extend type Query {
         client(id: ID!): Client
         clients(options: ClienListOptions): ClienList
+    }
+
+    input CreateClientInput {
+        name: String!
+        email: String!
+    }
+
+    input UpdateClientInput {
+        id: ID!
+        name: String!
+        email: String!
+    }
+
+    extend type Mutation {
+        createClient(input: CreateClientInput!): Client!
+        updateClient(input: UpdateClientInput!): Client!
+        deleteClient(id: ID!): Client!
+        enableClient(id: ID!): Client!
+        disableClient(id: ID!): Client!
     }
 `;
 
@@ -94,4 +115,106 @@ export const resolvers = {
             };
         },
     },
+
+    Mutation: {
+        createClient: async (_, { input }) => {
+            const clients = await clientRepository.read();
+
+            const client = {
+                id: uuid.v4(),
+                name: input.name,
+                email: input.email,
+                disabled: false
+            }
+
+            await clientRepository.write([...clients, client]);
+
+            return client;
+        },
+
+        updateClient: async (_, { input }) => {
+            const clients = await clientRepository.read();
+            let client = clients.find(item => item.id === input.id);
+
+            if (!client)
+                throw new Error(`No client with id: "${input.id}"`);
+
+            client = {
+                ...client,
+                name: input.name,
+                email: input.email,
+            }
+
+            const updated = clients.map((item) => {
+                if (item.id === client.id)
+                    return client
+                return item;
+            });
+
+            await clientRepository.write(updated);
+
+            return client;
+        },
+
+        deleteClient: async (_, { id }) => {
+            // console.log ("id", id);
+
+            const clients = await clientRepository.read();
+            let client = clients.find(item => item.id === id);
+
+            if (!client)
+                throw new Error(`No client with id: "${id}"`);
+
+            const updated = clients.filter((item) => item.id !== client.id);
+
+            await clientRepository.write(updated);
+
+            return client;
+        },
+
+        enableClient: async (_, { id }) => {
+            const clients = await clientRepository.read();
+            let client = clients.find(item => item.id === id);
+
+            if (!client)
+                throw new Error(`No client with id: "${id}"`);
+
+            if (!client.disabled)
+                throw new Error(`Client "${id}" is already enabled.`);
+
+            const updated = clients.map((item) => {
+                if (item.id === client.id)
+                    item.disabled = false;
+
+                return item;
+            });
+
+            await clientRepository.write(updated);
+
+            return client;
+        },
+
+        disableClient: async (_, { id }) => {
+            const clients = await clientRepository.read();
+            let client = clients.find(item => item.id === id);
+
+            if (!client)
+                throw new Error(`No client with id: "${id}"`);
+
+            if (client.disabled)
+                throw new Error(`Client "${id}" is already disabled.`);
+
+            const updated = clients.map((item) => {
+                if (item.id === client.id)
+                    item.disabled = true;
+
+                return item;
+            });
+
+            await clientRepository.write(updated);
+
+            return client;
+        }
+
+    }
 };
