@@ -1,37 +1,69 @@
-import { createServer } from 'http';
-import { parse } from 'querystring';
+import express from 'express';
+import { ApolloServer } from 'apollo-server-express';
+import { ApolloServerPluginLandingPageGraphQLPlayground } from 'apollo-server-core';
 
-const server = createServer((request, response) => {
-	let path;
+import typeDefs from './graphql/typeDefs';
+import resolvers from './graphql/resolvers';
 
-	switch (request.url) {
-		case '/status':
-			response.writeHead(200, {
-				'Content-Type': 'application/json',
-			});
-			response.write(JSON.stringify({"status": "Okay"}));
-			response.end()
-			break;
-		case '/authenticate':
-			let data = '';
-			request.on('data', (chunk) => {
-				data += chunk;
-			});
-			request.on('end', () => {
-				const authData = parse(data);
-				response.end();
-			})
-			break;
-		default:
-			response.writeHead(404, 'Service not found');
-			response.end();
-	}
-});
-
+const app = express();
 const PORT = process.env.PORT ? parseInt(processs.env.PORT) : 8000;
 const HOSTNAME = process.env.HOSTNAME || '192.168.0.231';
 
-server.listen(PORT, HOSTNAME, () => {
+// let server;
+
+async function startServer() {
+	const server = new ApolloServer({
+		plugins: [
+			ApolloServerPluginLandingPageGraphQLPlayground(),
+		],
+		typeDefs,
+		resolvers,
+	});
+
+	await server.start();
+
+	server.applyMiddleware({
+		app,
+		cors: {
+			origin: `http://${HOSTNAME}:3000`
+		},
+		bodyParserConfig: true,
+	});
+};
+
+startServer(app);
+
+app.listen(PORT, HOSTNAME, () => {
 	console.log(`Server listening at ${HOSTNAME}:${PORT}`);
+	// console.log(`GraphQL ${server.graphqlPath}`);
 });
+
+// server.get('/status', (_, response) => {
+// 	response.send({
+// 		status: 'Okay',
+// 	});
+// });
+
+// const enableCors = cors({origin: 'http://192.168.0.231:3000'});
+
+// server
+// 	.options('/authenticate', enableCors)
+// 	.post(
+// 		'/authenticate',
+// 		enableCors,
+// 		express.json(),
+// 		(request, response) => {
+// 			console.log(
+// 				'E-mail', request.body.email,
+// 				'Senha', request.body.password
+// 			);
+// 			response.send({Okay: true});
+// });
+
+// const PORT = process.env.PORT ? parseInt(processs.env.PORT) : 8000;
+// const HOSTNAME = process.env.HOSTNAME || '192.168.0.231';
+
+// server.listen(PORT, HOSTNAME, () => {
+// 	console.log(`Server listening at ${HOSTNAME}:${PORT}`);
+// });
 
